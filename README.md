@@ -38,13 +38,15 @@ Asegúrate de tener instalado **Java (JDK)** y **Maven** en tu sistema.
 1. **Clonar el repositorio:**
    ```bash
    git clone [https://github.com/lescobara/mp3-player-java.git](https://github.com/lescobara/mp3-player-java.git)
-   cd mp3-player-java```
+   cd mp3-player-java
+   ```
 
 2. **Descargar dependencias y empaquetar el proyecto:**
 Este comando le dice a Maven que limpie compilaciones previas, descargue las librerías (basicplayer, flatlaf, etc.) y compile el código fuente.
 
     ```bash
-    mvn clean package```
+    mvn clean package
+    ```
 
 3. **Ejecutar la aplicación:**
 Puedes lanzarlo directamente usando el plugin de ejecución de Maven.
