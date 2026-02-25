@@ -32,7 +32,7 @@ public class Controlador implements ActionListener, BasicPlayerListener{
     
     //private String rutaActual;
     private int contadorIndice; //atributo empleado para ir asignando índices en el hashmap
-    private int indiceActual = 0; //atributo empleado para saber qué canción se va a reproducir
+    private int indiceActual = 1; //atributo empleado para saber qué canción se va a reproducir
     
     private boolean estaPausado=false;
     private boolean esNuevaCarga = false;
@@ -154,7 +154,7 @@ public class Controlador implements ActionListener, BasicPlayerListener{
             // Al usar JDK 21, podemos aprovechar la ligereza de los Virtual Threads,
             // o usar un Thread convencional. Esto evita el bloqueo del motor de audio.
             Thread.startVirtualThread(() -> {
-                reproducirSiguienteAutomatica();
+                reproducirSiguiente();
             });
         }
 
@@ -241,27 +241,6 @@ public class Controlador implements ActionListener, BasicPlayerListener{
         }
     }
     
-    /**
-    * Configura los Listeners espec�ficos para la JTable de la Vista.
-    */
-    /*private void configurarEventosTabla() {
-        this.vista.tablaCanciones.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                // Manejamos el doble clic
-                if (evt.getClickCount() == 2) { 
-                    int fila = vista.tablaCanciones.getSelectedRow();
-
-                    if (fila != -1) {
-                        // Extraemos el ID del HashMap desde la columna 0
-                        int idSeleccionado = (int) vista.tablaCanciones.getValueAt(fila, 0);
-                        // Ejecutamos la reproducci�n
-                        reproducirIndiceActual(idSeleccionado);
-                    }
-                }
-            }
-        });
-    } */
     private void configurarEventosTabla() {
     
         // 1. Asignar la acci�n al bot�n "Eliminar" del men� emergente
@@ -334,33 +313,6 @@ public class Controlador implements ActionListener, BasicPlayerListener{
         });
     }
     
-    /**
-    * Incrementa el �ndice y verifica si hay una canci�n disponible para continuar
-    * la reproducci�n secuencial.
-    */
-    private void reproducirSiguienteAutomatica() {
-        // 1. Apuntamos al siguiente índice
-        this.indiceActual++;
-
-        // 2. Verificamos en el HashMap si ese �ndice existe
-        if (lista.obtenerCancion(this.indiceActual) != null) {
-            // Aseguramos que la bandera de nueva carga est� en false
-            this.esNuevaCarga = false;
-
-            // 3. Reutilizamos el m�todo de reproducci�n que ya tenemos
-            reproducirIndiceActual(this.indiceActual);
-
-            //System.out.println("Saltando autom�ticamente a la canci�n �ndice: " + this.indiceActual);
-        } else {
-            // Si no hay m�s canciones (llegamos al final del HashMap)
-            //System.out.println("Se ha llegado al final de la lista de reproducci�n.");
-
-            // Opcional: Reiniciar el �ndice a 0 por si el usuario pulsa Play de nuevo
-            this.indiceActual = 0; 
-            limpiarLabels();
-        }
-    }
-    
     private void procesarNuevoArchivo(String ruta) {
         try {
             // 1. Extraer metadatos sin interrumpir lo que suena
@@ -421,20 +373,31 @@ public class Controlador implements ActionListener, BasicPlayerListener{
     }
     
     /**
-    * Salta a la siguiente canci�n en el HashMap. 
-    * Si est� en la �ltima, vuelve a la primera.
-    */
+     * Salta a la siguiente canci�n v�lida en el HashMap saltando los "huecos" eliminados. 
+     * Si llega al final, hace un bucle y vuelve a la primera canci�n v�lida.
+     */
     private void reproducirSiguiente() {
-        if (lista.totalCanciones() == 0) return; // Protecci�n por si la lista est� vac�a
+        if (lista.totalCanciones() == 0) return;
 
-        int nuevoIndice = this.indiceActual + 1;
+        int siguienteIndice = this.indiceActual + 1;
+        boolean encontrado = false;
 
-        // Verificamos si existe la siguiente llave en el mapa
-        if (lista.obtenerCancion(nuevoIndice) != null) {
-            reproducirIndiceActual(nuevoIndice);
+        // Buscamos hacia adelante saltando los nulls
+        while (siguienteIndice < this.contadorIndice) {
+            if (lista.obtenerCancion(siguienteIndice) != null) {
+                encontrado = true;
+                break;
+            }
+            siguienteIndice++; // Si es null, pasamos al siguiente n�mero
+        }
+
+        if (encontrado) {
+            // Encontramos una canci�n v�lida m�s adelante
+            this.esNuevaCarga = false;
+            reproducirIndiceActual(siguienteIndice);
         } else {
-            // Si no existe, significa que llegamos al final. Volvemos al �ndice 0.
-            reproducirIndiceActual(0);
+            // Llegamos al final del mapa. Hacemos bucle a la primera canci�n v�lida.
+            reproducirIndiceActual(obtenerPrimerIndiceValido());
         }
     }
 
@@ -442,17 +405,53 @@ public class Controlador implements ActionListener, BasicPlayerListener{
      * Retrocede a la canci�n anterior.
      * Si est� en la primera, salta a la �ltima de la lista.
      */
+    /**
+     * Retrocede a la canci�n anterior saltando los huecos.
+     * Si est� en la primera, hace un bucle hacia la �ltima canci�n v�lida.
+     */
     private void reproducirAnterior() {
         if (lista.totalCanciones() == 0) return;
 
-        int nuevoIndice = this.indiceActual - 1;
+        int anteriorIndice = this.indiceActual - 1;
+        boolean encontrado = false;
 
-        if (nuevoIndice >= 0 && lista.obtenerCancion(nuevoIndice) != null) {
-            reproducirIndiceActual(nuevoIndice);
-        } else {
-            // Si retrocede antes del 0, lo mandamos a la �ltima canci�n agregada
-            reproducirIndiceActual(lista.totalCanciones() - 1);
+        // Buscamos hacia atr�s saltando los nulls
+        while (anteriorIndice >= 0) {
+            if (lista.obtenerCancion(anteriorIndice) != null) {
+                encontrado = true;
+                break;
+            }
+            anteriorIndice--;
         }
+
+        if (encontrado) {
+            this.esNuevaCarga = false;
+            reproducirIndiceActual(anteriorIndice);
+        } else {
+            // Si retrocede m�s all� del 0, vamos a la �ltima canci�n v�lida
+            reproducirIndiceActual(obtenerUltimoIndiceValido());
+        }
+    }
+    
+    // ================= M�TODOS AUXILIARES DE B�SQUEDA =================
+
+    private int obtenerPrimerIndiceValido() {
+        for (int i = 0; i < this.contadorIndice; i++) {
+            if (lista.obtenerCancion(i) != null) {
+                return i;
+            }
+        }
+        return 0; // Retorno de seguridad
+    }
+
+    private int obtenerUltimoIndiceValido() {
+        // Buscamos de reversa desde el �ndice m�s alto generado
+        for (int i = this.contadorIndice - 1; i >= 0; i--) {
+            if (lista.obtenerCancion(i) != null) {
+                return i;
+            }
+        }
+        return 0; // Retorno de seguridad
     }
     
     /**
