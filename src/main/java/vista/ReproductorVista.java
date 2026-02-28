@@ -9,9 +9,12 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.Image;
+import java.net.URL;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -36,19 +39,13 @@ public class ReproductorVista extends JFrame {
     public JLabel lblTitulo = new JLabel("Título: -");
     public JLabel lblArtista = new JLabel("Artista: -");
     public JLabel lblAlbum = new JLabel("Album: -");
-
-    //public JButton btnPlay = new JButton("Reproducir");
-    //public JButton btnPausa = new JButton("Pausar");
-    //public JButton btnStop = new JButton("Detener");
-    //public JButton btnAbrir = new JButton("Abrir archivo");
     
-    // El texto normal se reemplaza por caracteres Unicode
-    public JButton btnAbrir = new JButton("\u23CF"); // ? (Carpeta abierta)
-    public JButton btnAnterior = new JButton("\u23EE"); // ? (Anterior)
-    public JButton btnPlay = new JButton("\u25B6");      // ? (Play)
-    public JButton btnPausa = new JButton("\u23F8");     // ? (Pausa)
-    public JButton btnStop = new JButton("\u23F9");      // ? (Stop)
-    public JButton btnSiguiente = new JButton("\u23ED"); // ? (Siguiente)
+    public JButton btnAbrir = new JButton(); 
+    public JButton btnAnterior = new JButton();
+    public JButton btnPlay = new JButton();
+    public JButton btnPausa = new JButton();
+    public JButton btnStop = new JButton();
+    public JButton btnSiguiente = new JButton();
     
     public JSlider sliderVolumen = new JSlider(0, 100, 50); // Min 0, Max 100, Inicial 50
 
@@ -58,7 +55,7 @@ public class ReproductorVista extends JFrame {
     ) {
         @Override
         public boolean isCellEditable(int row, int column) {
-            // Al retornar false, bloqueamos la edici�n manual de las celdas
+            // Al retornar false, bloqueamos la edición manual de las celdas
             return false;
         }
     };
@@ -72,8 +69,26 @@ public class ReproductorVista extends JFrame {
     public ReproductorVista() {
         super("Mp3 en JAVA!");
         this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        this.setLayout(new BorderLayout(10, 10)); // Separaci�n de 10px entre regiones
-
+        this.setLayout(new BorderLayout(10, 10)); // Separación de 10px entre regiones
+        
+        // ==========================================
+        // CARGA DE ÍCONOS (.PNG)
+        // ==========================================
+        // Ajusta el "40, 40" si quieres los íconos más grandes o pequeños
+        int tamanoIcono = 40; 
+        btnAbrir.setIcon(cargarIcono("iconos/folder_open.png", tamanoIcono, tamanoIcono));
+        btnAnterior.setIcon(cargarIcono("iconos/skip_previous.png", tamanoIcono, tamanoIcono));
+        btnPlay.setIcon(cargarIcono("iconos/play_circle.png", tamanoIcono, tamanoIcono));
+        btnPausa.setIcon(cargarIcono("iconos/pause_circle.png", tamanoIcono, tamanoIcono));
+        btnStop.setIcon(cargarIcono("iconos/stop_circle.png", tamanoIcono, tamanoIcono));
+        btnSiguiente.setIcon(cargarIcono("iconos/skip_next.png", tamanoIcono, tamanoIcono));
+        //haciendo el botón transparente
+        btnAbrir.setContentAreaFilled(false);
+        btnAnterior.setContentAreaFilled(false);
+        btnPlay.setContentAreaFilled(false);
+        btnPausa.setContentAreaFilled(false);
+        btnStop.setContentAreaFilled(false);
+        btnSiguiente.setContentAreaFilled(false);
         // ==========================================
         // 1. PANEL IZQUIERDO (Info, Barra y Botones)
         // ==========================================
@@ -81,7 +96,7 @@ public class ReproductorVista extends JFrame {
         panelIzquierdo.setLayout(new BoxLayout(panelIzquierdo, BoxLayout.Y_AXIS));
         panelIzquierdo.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20)); // M�rgenes internos
 
-        // --- Sub-panel de Informaci�n ---
+        // --- Sub-panel de Información ---
         JPanel panelInfo = new JPanel();
         panelInfo.setLayout(new BoxLayout(panelInfo, BoxLayout.Y_AXIS));
         lblTitulo.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -169,5 +184,23 @@ public class ReproductorVista extends JFrame {
         // Ensamblaje del menú contextual
         menuTabla.add(itemEliminar);
         this.setVisible(true);
+    }
+    
+    /**
+     * Método auxiliar para cargar, escalar y asignar imágenes de forma segura.
+     * Busca la ruta relativa a esta clase dentro del proyecto (Classpath).
+     */
+    private ImageIcon cargarIcono(String ruta, int ancho, int alto) {
+        
+        // 1. buscar la imagen
+        java.net.URL urlImg = this.getClass().getResource(ruta);
+
+        if (urlImg != null) {
+            ImageIcon iconoOriginal = new ImageIcon(urlImg);
+            Image imagenEscalada = iconoOriginal.getImage().getScaledInstance(ancho, alto, Image.SCALE_SMOOTH);
+            return new ImageIcon(imagenEscalada);
+        } else {
+            return null;
+        }
     }
 }

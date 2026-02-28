@@ -58,7 +58,7 @@ Puedes lanzarlo directamente usando el plugin de ejecución de Maven.
 ## 📝 Próximas Mejoras (Roadmap)
 El proyecto está en constante evolución. Las siguientes características están planificadas para futuras actualizaciones:
 
-[ ] Dividir en Controlador al implementar el patrón delegación. 
+[X] Dividir en Controlador al implementar el patrón delegación. 
 
 [ ] Vaciar Lista de Reproducción: Añadir una opción al menú contextual o un botón dedicado para limpiar todo el HashMap y redibujar la tabla vacía en un solo clic.
 

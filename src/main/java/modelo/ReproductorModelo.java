@@ -12,29 +12,67 @@ import javazoom.jlgui.basicplayer.BasicPlayer;
 import javazoom.jlgui.basicplayer.BasicPlayerListener;
 
 /**
- *
- * @author diotallevi
+ * MODELO DE REPRODUCCIÓN (Patrón Singleton)
+ * ----------------------------------------
+ * Se encarga de la lógica "física" del audio y de mantener la lista de canciones.
+ * 
+ * * ¿POR QUÉ ES SINGLETON?
+ * La tarjeta de sonido y el flujo de audio son recursos compartidos. Si permitiéramos 
+ * crear múltiples instancias de esta clase (usando 'new'), podríamos tener dos 
+ * canciones sonando al mismo tiempo en reproductores distintos, o podríamos enviar 
+ * la orden de "Pausar" al reproductor equivocado. El patrón Singleton garantiza que 
+ * TODA la aplicación se comunique con el mismo y único motor de audio.
  */
 public class ReproductorModelo {
     
-    // 1. Instancia est�tica privada (volatile garantiza seguridad entre hilos)
+    // 1. Instancia estática privada. 
+    // La palabra reservada 'volatile' garantiza que los cambios realizados en esta variable 
+    // por un hilo sean visibles inmediatamente para los demás hilos, evitando que se creen dos instancias.
     private static volatile ReproductorModelo instancia;
     
     private BasicPlayer reproductor;
     private ListaReproduccion lista;
     private BasicPlayerListener listener; // Lo usaremos para comunicar eventos al controlador
     
-    // 2. Constructor PRIVADO (nadie más puede usar 'new ReproductorModelo()')
+    /**
+     * 2. Constructor PRIVADO.
+     * Al ser privado, ninguna otra clase puede instanciar este modelo accidentalmente.
+     * Solo esta misma clase puede inicializarse a sí misma.
+     */
     private ReproductorModelo() {
         this.reproductor = new BasicPlayer();
         this.lista = new ListaReproduccion(); // El Singleton inicializa su propia lista
     }
     
+    /**
+     * 3. Método de acceso global a la única instancia (Double-Checked Locking).
+     * @return La única instancia en memoria de ReproductorModelo.
+     */
+    public static ReproductorModelo getInstance() {
+        if (instancia == null) {
+            synchronized (ReproductorModelo.class) {
+                if (instancia == null) {
+                    instancia = new ReproductorModelo();
+                }
+            }
+        }
+        return instancia;
+    }
+    
+    // =========================================================================
+    //                        MÉTODOS DE AUDIO Y CONTROL
+    // =========================================================================
+    
+    /**
+     * Carga un archivo directamente al motor de audio mediante su ruta.
+     */
     public void setRutaDirecta (String entradaRuta) throws Exception{
         this.reproductor.open(new File (entradaRuta));
     }
 
-    // Busca en el HashMap y abre el archivo
+    /**
+     * Busca la canción en la estructura de datos (Lista) según su ID y la carga en el motor.
+     */
     public void prepararDesdeLista(int indice) throws Exception {
         Cancion c = lista.obtenerCancion(indice);
         if (c != null) {
@@ -44,7 +82,10 @@ public class ReproductorModelo {
         }
     }
     
-    // Método para que el controlador se suscriba a los eventos
+    /**
+     * Permite que el Controlador (específicamente el sub-controlador de reproducción) 
+     * se conecte al motor para escuchar los eventos de progreso, fin de canción, etc.
+     */
     public void setControlador(BasicPlayerListener entradaListener) {
         this.listener=entradaListener;
         this.reproductor.addBasicPlayerListener(this.listener);
@@ -84,24 +125,20 @@ public class ReproductorModelo {
         return baseFileFormat.properties();
     }
     
+    /**
+     * Consulta el estado actual del motor de audio (Ej: Reproduciendo, Pausado, Detenido).
+     * @return El código de estado proporcionado por BasicPlayer.
+     */
     public int getEstado(){
         return this.reproductor.getStatus();
     }
     
-    // 3. M�todo est�tico para obtener la �nica instancia (Double-Checked Locking)
-    public static ReproductorModelo getInstance() {
-        if (instancia == null) {
-            synchronized (ReproductorModelo.class) {
-                if (instancia == null) {
-                    instancia = new ReproductorModelo();
-                }
-            }
-        }
-        return instancia;
-    }
-    
+    /**
+     * Ajusta el volumen del motor de audio.
+     * @param valor Un número decimal representando el volumen (ej. 0.5 para 50%).
+     */
     public void setVolumen(double valor) throws Exception {
-        // Verificamos que el control de ganancia est� disponible en el archivo actual
+        // Verificamos que el control de ganancia está disponible en el archivo actual
         if (this.reproductor.hasGainControl()) {
             this.reproductor.setGain(valor);
         }

@@ -47,7 +47,7 @@ public class ListaReproduccion {
         
     /**
      * Retorna los valores como una List (interfaz).
-     * Es más flexible que retornar espec�ficamente un ArrayList.
+     * Es más flexible que retornar específicamente un ArrayList.
      */
     public List<Cancion> getListaCanciones() {
         // Convertimos la colección de valores del Map a un ArrayList nuevo

@@ -4,17 +4,6 @@
  */
 package controlador;
 
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.io.File;
-import java.util.Map;
-import javax.swing.JFileChooser;
-import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
-import javazoom.jlgui.basicplayer.BasicController;
-import javazoom.jlgui.basicplayer.BasicPlayer;
-import javazoom.jlgui.basicplayer.BasicPlayerEvent;
-import javazoom.jlgui.basicplayer.BasicPlayerListener;
 import modelo.Cancion;
 import modelo.ListaReproduccion;
 import modelo.ReproductorModelo;
@@ -24,398 +13,187 @@ import vista.ReproductorVista;
  *
  * @author diotallevi
  */
-public class Controlador implements ActionListener, BasicPlayerListener{
+
+import java.util.Map;
+import javax.swing.JOptionPane;
+import javazoom.jlgui.basicplayer.BasicPlayer;
+
+/**
+ * CONTROLADOR CENTRAL (Patrón Mediador)
+ * --------------------------------------
+ * Esta clase actúa como el "Director de Orquesta". Es la única que conoce 
+ * el estado general del reproductor y coordina a los sub-controladores 
+ * (Botones, Tabla, Reproducción) para que trabajen juntos sin acoplarse entre sí.
+ */
+public class Controlador {
     
+    // === COMPONENTES PRINCIPALES ===
     private final ReproductorModelo modelo;
     private final ReproductorVista vista;
     private final ListaReproduccion lista;
     
-    //private String rutaActual;
+    // === ESTADO COMPARTIDO ===
+    // Estas variables son privadas para forzar a los sub-controladores a usar getters/setters.
+    // Esto asegura que nadie cambie el estado sin que el Controlador Central se entere.
     private int contadorIndice; //atributo empleado para ir asignando índices en el hashmap
-    private int indiceActual = 1; //atributo empleado para saber qué canción se va a reproducir
+    private int indiceActual = 0; //atributo empleado para saber qué canción se va a reproducir
+    protected boolean estaPausado = false;
+    protected boolean esNuevaCarga = false;
+    protected long tamanoArchivo;
     
-    private boolean estaPausado=false;
-    private boolean esNuevaCarga = false;
-    private long tamanoArchivo;
+    // === SUB-CONTROLADORES ===
+    private final ControladorBotones ctrlBotones;
+    private final ControladorTabla ctrlTabla;
+    private final ControladorReproduccion ctrlReproduccion;
     
-    //Constructor
-    public Controlador (ReproductorVista entradaObjetoVista){
-        this.modelo=ReproductorModelo.getInstance();
-        this.vista=entradaObjetoVista;
-        this.lista = modelo.getLista(); //Usamos la lista que viene de la vista
+    /**
+     * Constructor: Inicializa la aplicación y distribuye las responsabilidades
+     * instanciando a los sub-controladores especializados.
+     */
+    public Controlador(ReproductorVista vista) {
+        this.modelo = ReproductorModelo.getInstance();
+        this.vista = vista;
+        this.lista = modelo.getLista();
         
-        this.modelo.setControlador(this); // Activar eventos de la librería de audio para que pueda funcionar la barra de progreso
-        
-        //Agregando Eventos
-        this.vista.btnPlay.addActionListener(this);
-        this.vista.btnPausa.addActionListener(this);
-        this.vista.btnStop.addActionListener(this);
-        this.vista.btnAbrir.addActionListener(this);
-        this.vista.btnAnterior.addActionListener(this);
-        this.vista.btnSiguiente.addActionListener(this);
-        
-        configurarEventosTabla();
-        
-        configurarEventosVolumen();
+        // Se instancian los sub-controladores pasándoles una referencia de este orquestador (this)
+        this.ctrlReproduccion = new ControladorReproduccion(this, modelo, vista, lista);
+        this.ctrlBotones = new ControladorBotones(this, vista);
+        this.ctrlTabla = new ControladorTabla(this, vista, lista);
     }
-
-    @Override
-    public void actionPerformed(ActionEvent e) {
+    
+    // =========================================================================
+    //                    MÉTODOS DE MEDIACIÓN Y ORQUESTACIÓN
+    // =========================================================================
+    
+    /**
+     * MEDIADOR PRINCIPAL DE REPRODUCCIÓN
+     * Cambia la canción actual y coordina a todos los componentes visuales y de audio.
+     * * @param indice El ID de la canciÓn que se desea reproducir.
+     */
+    public void reproducirIndice(int indice) {
         try {
-            if (e.getSource() == vista.btnAbrir) {
-                String rutaArchivo = seleccionarArchivo();
-                if (rutaArchivo != null) {
-                    procesarNuevoArchivo(rutaArchivo);
-                }
-            }else if (e.getSource() == vista.btnPlay) {
-                if (estaPausado) {
-                    modelo.reanudar();
-                    estaPausado = false;
-                }else{
-                    reproducirIndiceActual(this.indiceActual);
-                }
-               
-            }else if (e.getSource() == vista.btnPausa) {
-                modelo.pausar();
-                estaPausado = true;
-            }else if (e.getSource() == vista.btnStop) {
-                // 1. Forzamos el reset de estados visuales y l�gicos de inmediato
-                estaPausado = false;
-                limpiarLabels();
-
-                // 2. Solo activamos el 'freno' y llamamos a detener si realmente est� sonando o pausado
-                // Esto evita que el comando se quede "atrapado"
-                if (modelo.getEstado() != BasicPlayer.STOPPED) {
-                    modelo.detener();
-                }
-            } else if (e.getSource() == vista.btnAnterior) {
-                reproducirAnterior();
-            } else if (e.getSource() == vista.btnSiguiente) {
-                reproducirSiguiente();
-            }
-        
-       }catch (Exception ex) {
-            JOptionPane.showMessageDialog(vista, "Error: " + ex.getMessage());
-       }  
-    }
-
-    //Método empleado para seleccionar el archivo, retorna la ruta como un string
-    public String seleccionarArchivo() {
-        JFileChooser fileChooser = new JFileChooser();
-        // Filtro para que solo se vean archivos MP3
-        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Archivos MP3", "mp3"));
-        int seleccion = fileChooser.showOpenDialog(vista);
-
-        if (seleccion == JFileChooser.APPROVE_OPTION) {
-            return fileChooser.getSelectedFile().getAbsolutePath();
-        }
-
-        return null;
-    }
-    
-    @Override
-    public void opened(Object source, Map properties) {
-        // Al empezar a sonar, actualizamos los labels con la canci�n actual
-        Cancion actual = lista.obtenerCancion(this.indiceActual);
-        actualizarInfo(actual);
-
-        // Guardamos el tama�o para la barra de progreso
-        if (properties.containsKey("audio.length.bytes")) {
-            tamanoArchivo = Long.parseLong(properties.get("audio.length.bytes").toString());
-        }
-    }
-    
-    @Override
-    public void progress(int bytesread, long microseconds, byte[] pcmdata, Map properties) {
-        // 1. Calcular porcentaje para la barra
-        if (tamanoArchivo > 0) {
-            float progreso = (bytesread * 100.0f) / tamanoArchivo;
-            vista.barraProgreso.setValue((int) progreso);
-        }
-
-        // 2. Convertir microsegundos a Minutos:Segundos
-        long segundosTotales = microseconds / 1000000;
-        long minutos = segundosTotales / 60;
-        long segundos = segundosTotales % 60;
-
-        // 3. Escribir el tiempo sobre la barra (ej: "02:45")
-        vista.barraProgreso.setString(String.format("%02d:%02d", minutos, segundos));
-    }
-
-    @Override
-    public void stateUpdated(BasicPlayerEvent bpe) {
-        int estado = bpe.getCode();
-
-        // 1. EOM (End Of Media): Se dispara SOLO cuando la pista termina de forma natural
-        if (estado == BasicPlayerEvent.EOM) {
-            System.out.println("DEBUG: Fin de canción (EOM) detectado. Saltando a la siguiente...");
-
-            // EL SECRETO: Lanzar la siguiente canci�n en un hilo nuevo.
-            // Al usar JDK 21, podemos aprovechar la ligereza de los Virtual Threads,
-            // o usar un Thread convencional. Esto evita el bloqueo del motor de audio.
-            Thread.startVirtualThread(() -> {
-                reproducirSiguiente();
-            });
-        }
-
-        // 2. STOPPED o UNKNOWN: Se dispara al pulsar "Detener" o despu�s de un EOM
-        if (estado == BasicPlayerEvent.STOPPED || estado == BasicPlayerEvent.UNKNOWN) {
-            // Limpieza visual segura (mandamos el cambio a la interfaz gr�fica)
-            SwingUtilities.invokeLater(() -> {
-                vista.barraProgreso.setValue(0);
-                vista.barraProgreso.setString("00:00");
-                estaPausado = false;
-            });
-        }
-    }
-
-    @Override
-    public void setController(BasicController bc) {
-        throw new UnsupportedOperationException(""); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
-    }
-    
-    // Método auxiliar para evitar el "null"
-    private String obtenerPropiedad(Map props, String llave, String valorDefecto) {
-        Object valor = props.get(llave);
-        return (valor != null && !valor.toString().isEmpty()) ? valor.toString() : valorDefecto;
-    }
-    
-    //Método para limpiar labels cuando se oprime detener
-    public void limpiarLabels() {
-        vista.lblTitulo.setText("Título: -");
-        vista.lblArtista.setText("Artista: -");
-        vista.lblAlbum.setText("Álbum: -");
-        vista.barraProgreso.setValue(0);
-        vista.barraProgreso.setString("00:00");
-    }
-    
-    private void reproducirIndiceActual(int entradaIndice) {
-        try {
-
-            this.indiceActual = entradaIndice;
+            // 1. Actualiza el estado central
+            this.indiceActual = indice;
             Cancion cancion = lista.obtenerCancion(this.indiceActual);
 
             if (cancion != null) {
                 this.esNuevaCarga = false;
+                // 2. ORQUESTA AL MODELO: Prepara y da play al audio
                 modelo.prepararDesdeLista(this.indiceActual);
                 modelo.reproducir();
-                estaPausado = false;
-                actualizarInfo(cancion);
-                resaltarCancionEnTabla(this.indiceActual);
+                this.estaPausado = false;
+                // 3. ORQUESTA A REPRODUCCIÓN: Le pide que actualice los textos (Labels)
+                ctrlReproduccion.actualizarInfo(cancion);
+                // 4. ORQUESTA A LA TABLA: Le pide que mueva el scroll y resalte la fila
+                ctrlTabla.resaltarCancionEnTabla(this.indiceActual);
             }
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(vista, "Error: " + ex.getMessage());
         }
     }
-    
-    //Método para actualizar la tabla
-    private void actualizarTabla(){        
-        //Limpiar tabla
-        this.vista.modeloTabla.setRowCount(0);
-        
-        //obtener acceso a la lista de canciones
-        for (int i=0;i<this.contadorIndice;i++){
-            Cancion c=lista.obtenerCancion(i);
-            if (c != null){
-                    Object[] fila = {
-                        i, 
-                        c.getTitulo(), 
-                        c.getAutor(), 
-                        c.getDuracionFormateada()
-                    };
-                vista.modeloTabla.addRow(fila);
-            }
-        }
-        // 3. Actualizar los labels solo con la canción que se acaba de cargar (la �ltima)
-        // Buscamos la canción usando el contadorIndice - 1
-        actualizarInfo(lista.obtenerCancion(this.indiceActual));
-        
-        vista.pack();
-    } 
-    
-    private void actualizarInfo(Cancion actual){
-        if (actual != null) {
-            vista.lblTitulo.setText("Título: " + actual.getTitulo());
-            vista.lblArtista.setText("Artista: " + actual.getAutor());
-            vista.lblAlbum.setText("Álbum: " + actual.getAlbum());
-        }
-    }
-    
-    private void configurarEventosTabla() {
-    
-        // 1. Asignar la acci�n al bot�n "Eliminar" del men� emergente
-        this.vista.itemEliminar.addActionListener(e -> {
-            eliminarCancionSeleccionada();
-        });
-
-        // 2. Escuchar los eventos del rat�n en la tabla
-        this.vista.tablaCanciones.addMouseListener(new java.awt.event.MouseAdapter() {
-
-            @Override
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                // Doble clic (Aseguramos que sea con el bot�n izquierdo)
-                if (evt.getClickCount() == 2 && SwingUtilities.isLeftMouseButton(evt)) { 
-                    int fila = vista.tablaCanciones.getSelectedRow();
-                    if (fila != -1) {
-                        int idSeleccionado = (int) vista.tablaCanciones.getValueAt(fila, 0);
-                        reproducirIndiceActual(idSeleccionado);
-                    }
-                }
-            }
-
-            // Detecci�n multiplataforma del clic derecho (Popup Trigger)
-            @Override
-            public void mousePressed(java.awt.event.MouseEvent evt) {
-                verificarMenuEmergente(evt);
-            }
-
-            @Override
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                verificarMenuEmergente(evt);
-            }
-
-            private void verificarMenuEmergente(java.awt.event.MouseEvent evt) {
-                if (evt.isPopupTrigger()) {
-                    // Obtenemos la fila exacta bajo el puntero del rat�n
-                    int fila = vista.tablaCanciones.rowAtPoint(evt.getPoint());
-
-                    if (fila >= 0 && fila < vista.tablaCanciones.getRowCount()) {
-                        // Forzamos la selecci�n visual de esa fila
-                        vista.tablaCanciones.setRowSelectionInterval(fila, fila);
-
-                        // Desplegamos el men� en las coordenadas del rat�n
-                        vista.menuTabla.show(evt.getComponent(), evt.getX(), evt.getY());
-                    }
-                }
-            }
-        });
-    }
-    
-     /**
-     * Busca el ID de la canci�n en la tabla, selecciona la fila y hace scroll hacia ella.
+     
+    /**
+     * MEDIADOR DE CARGA DE ARCHIVOS
+     * Procesa un nuevo archivo MP3, lo agrega a la lista y decide si debe 
+     * reproducirlo automáticamente o solo dejarlo en cola.
      */
-    private void resaltarCancionEnTabla(int idCancion) {
-        // Como tocamos la interfaz gr�fica, nos aseguramos de estar en el hilo de Swing (EDT)
-        SwingUtilities.invokeLater(() -> {
-            for (int i = 0; i < vista.tablaCanciones.getRowCount(); i++) {
-                // Obtenemos el ID almacenado en la columna 0 de esa fila
-                int idFila = (int) vista.tablaCanciones.getValueAt(i, 0);
-
-                if (idFila == idCancion) {
-                    // Seleccionamos la fila visualmente
-                    vista.tablaCanciones.setRowSelectionInterval(i, i);
-
-                    // Forzamos el scroll para que la fila seleccionada sea visible
-                    vista.tablaCanciones.scrollRectToVisible(vista.tablaCanciones.getCellRect(i, 0, true));
-                    break; // Encontramos la canci�n, no necesitamos seguir buscando
-                }
-            }
-        });
-    }
-    
-    private void procesarNuevoArchivo(String ruta) {
+    public void procesarNuevoArchivo(String ruta) {
         try {
-            // 1. Extraer metadatos sin interrumpir lo que suena
+            // 1. Extrae metadatos y crea el objeto
             Map props = modelo.extraerMetadatosSilencioso(ruta);
+            Cancion nueva = ctrlReproduccion.crearCancionDesdeMap(props, ruta);
 
-            // 2. Crear el objeto Cancion (podemos delegar esto a otro m�todo si quieres m�s limpieza)
-            Cancion nueva = crearCancionDesdeMap(props, ruta);
-
-            // 3. Registrar en el modelo
-            lista.agregarCancion(nueva, this.contadorIndice);
+            // 2. Guardamos el índice que le va a tocar a esta nueva canci�n
+            int indiceNuevo = this.contadorIndice; 
+            
+            // 3. SIEMPRE agregamos a la lista (HashMap) e incrementamos el contador
+            lista.agregarCancion(nueva, indiceNuevo);
             this.contadorIndice++;
 
-            // 4. Actualizar la interfaz de forma selectiva
-            actualizarTabla();
+            // 4. SIEMPRE actualizamos la tabla para mostrar la nueva canción en pantalla
+            ctrlTabla.actualizarTabla();
 
-            // Mantener la informaci�n de la canci�n que est� sonando actualmente
-            actualizarInfo(lista.obtenerCancion(this.indiceActual));
-
+            // ==========================================
+            // 5. LÓGICA DE AUTO-REPRODUCCIÓN
+            // ==========================================
+            int estado = modelo.getEstado();
+            
+            // Si es la primera canción que agregamos, o si el reproductor está detenido
+            if (estado == -1 || estado == 2) { 
+                // Reproducimos automáticamente la que acabamos de agregar
+                reproducirIndice(indiceNuevo);
+            } 
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(vista, "Error al procesar metadatos: " + ex.getMessage());
+            System.err.println("Error al procesar metadatos: " + ex.getMessage());
         }
     }
     
-    private Cancion crearCancionDesdeMap(Map props, String ruta) {
-        String titulo = obtenerPropiedad(props, "title", "Desconocido");
-        String artista = obtenerPropiedad(props, "author", "Desconocido");
-        String album = obtenerPropiedad(props, "album", "Desconocido");
-        String genero = obtenerPropiedad(props, "genre", "Desconocido");
-
-        long duracion = props.containsKey("duration") ? (long) props.get("duration") : 0;
-
-        // Si el mapa trae el tama�o en bytes, lo usamos; si no, calculamos del archivo f�sico
-        long bytes = 0;
-        if (props.containsKey("audio.length.bytes")) {
-            bytes = Long.parseLong(props.get("audio.length.bytes").toString());
-        } else {
-            bytes = new File(ruta).length();
-        }
-
-        return new Cancion(titulo, artista, album, ruta, duracion, bytes, genero);
-    }
-
     /**
-     * Configura los listeners para los controles de audio deslizables.
+     * MEDIADOR DE PARADA DE REPRODUCCIÓN
+     * Detiene el audio, resetea estados lógicos y coordina la limpieza visual.
      */
-    private void configurarEventosVolumen() {
-        this.vista.sliderVolumen.addChangeListener(e -> {
-            int valorSlider = vista.sliderVolumen.getValue();
-            double volumen = valorSlider / 100.0;
-            try {
-                if (modelo.getEstado() != BasicPlayer.UNKNOWN) {
-                    modelo.setVolumen(volumen);
-                }
-            } catch (Exception ex) {
-                System.err.println("Error al cambiar volumen: " + ex.getMessage());
+    public void detenerReproduccion() {
+        try {
+            // 1. Forzamos el reset de estados lógicos de inmediato
+            this.estaPausado = false; 
+            
+            // ORQUESTA A REPRODUCCIÓN: Limpieza visual
+            ctrlReproduccion.limpiarLabels();
+
+            // 2. Solo activamos el 'freno' y llamamos a detener si realmente se está reproduciendo o pausado
+            // Esto evita que el comando se quede "atrapado"
+            if (modelo.getEstado() != BasicPlayer.STOPPED) {
+                modelo.detener();
             }
-        });
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(vista, "Error al detener: " + ex.getMessage());
+        }
     }
     
+    // =========================================================================
+    //                           LÓGICA DE NAVEGACIÓN
+    // =========================================================================
+
     /**
-     * Salta a la siguiente canci�n v�lida en el HashMap saltando los "huecos" eliminados. 
-     * Si llega al final, hace un bucle y vuelve a la primera canci�n v�lida.
+     * Calcula cuál es la siguiente pista válida (saltando las que se hayan eliminado).
+     * Una vez encontrada, le pide al método orquestador (reproducirIndice) que haga su trabajo.
      */
-    private void reproducirSiguiente() {
+    public void reproducirSiguiente() {
         if (lista.totalCanciones() == 0) return;
 
         int siguienteIndice = this.indiceActual + 1;
         boolean encontrado = false;
 
-        // Buscamos hacia adelante saltando los nulls
+        // Buscamos hacia adelante saltando los "huecos" (nulls) dejados por borrados
         while (siguienteIndice < this.contadorIndice) {
             if (lista.obtenerCancion(siguienteIndice) != null) {
                 encontrado = true;
                 break;
             }
-            siguienteIndice++; // Si es null, pasamos al siguiente n�mero
+            siguienteIndice++; // Si es null, pasamos al siguiente número
         }
 
         if (encontrado) {
-            // Encontramos una canci�n v�lida m�s adelante
+            // Encontramos una canción válida más adelante
             this.esNuevaCarga = false;
-            reproducirIndiceActual(siguienteIndice);
+            reproducirIndice(siguienteIndice);
         } else {
-            // Llegamos al final del mapa. Hacemos bucle a la primera canci�n v�lida.
-            reproducirIndiceActual(obtenerPrimerIndiceValido());
+            // Llegamos al final del mapa. Hacemos bucle a la primera canción válida.
+            reproducirIndice(obtenerPrimerIndiceValido());
         }
     }
 
     /**
-     * Retrocede a la canci�n anterior.
-     * Si est� en la primera, salta a la �ltima de la lista.
+     * Calcula cuál es la pista anterior válida (saltando las eliminadas).
+     * Una vez encontrada, le pide al método orquestador (reproducirIndice) que haga su trabajo.
      */
-    /**
-     * Retrocede a la canci�n anterior saltando los huecos.
-     * Si est� en la primera, hace un bucle hacia la �ltima canci�n v�lida.
-     */
-    private void reproducirAnterior() {
+    public void reproducirAnterior() {
         if (lista.totalCanciones() == 0) return;
 
         int anteriorIndice = this.indiceActual - 1;
         boolean encontrado = false;
 
-        // Buscamos hacia atr�s saltando los nulls
+        // Buscamos hacia atrás saltando los "huecos" (nulls)
         while (anteriorIndice >= 0) {
             if (lista.obtenerCancion(anteriorIndice) != null) {
                 encontrado = true;
@@ -426,14 +204,16 @@ public class Controlador implements ActionListener, BasicPlayerListener{
 
         if (encontrado) {
             this.esNuevaCarga = false;
-            reproducirIndiceActual(anteriorIndice);
+            reproducirIndice(anteriorIndice);
         } else {
-            // Si retrocede m�s all� del 0, vamos a la �ltima canci�n v�lida
-            reproducirIndiceActual(obtenerUltimoIndiceValido());
+            // Llegó al principio, hace un bucle saltando a la última canción válida
+            reproducirIndice(obtenerUltimoIndiceValido());
         }
     }
     
-    // ================= M�TODOS AUXILIARES DE B�SQUEDA =================
+    // =========================================================================
+    //                    MÉTODOS AUXILIARES DE BÚSQUEDA
+    // =========================================================================
 
     private int obtenerPrimerIndiceValido() {
         for (int i = 0; i < this.contadorIndice; i++) {
@@ -445,7 +225,7 @@ public class Controlador implements ActionListener, BasicPlayerListener{
     }
 
     private int obtenerUltimoIndiceValido() {
-        // Buscamos de reversa desde el �ndice m�s alto generado
+        // Buscamos de reversa desde el índice más alto generado
         for (int i = this.contadorIndice - 1; i >= 0; i--) {
             if (lista.obtenerCancion(i) != null) {
                 return i;
@@ -454,33 +234,19 @@ public class Controlador implements ActionListener, BasicPlayerListener{
         return 0; // Retorno de seguridad
     }
     
-    /**
-    * Se invoca desde el men� contextual para borrar la fila seleccionada.
-    */
-    private void eliminarCancionSeleccionada() {
-        int filaSeleccionada = vista.tablaCanciones.getSelectedRow();
-
-        if (filaSeleccionada != -1) {
-            // 1. Obtenemos el ID real desde la columna 0
-            int idSeleccionado = (int) vista.tablaCanciones.getValueAt(filaSeleccionada, 0);
-
-            // 2. Caso cr�tico: Si est�n eliminando la canci�n que est� sonando
-            if (idSeleccionado == this.indiceActual && modelo.getEstado() != BasicPlayer.STOPPED) {
-                // Detenemos la m�sica y limpiamos la interfaz simulando un clic en Stop
-                this.vista.btnStop.doClick(); 
-            }
-
-            // 3. Eliminamos del HashMap en el Modelo
-            lista.eliminarCancion(idSeleccionado);
-
-            // 4. Redibujamos la tabla (esto borra la fila visualmente)
-            actualizarTabla();
-
-            // 5. (Opcional) Si qued� otra canci�n sonando de fondo, aseguramos 
-            // que la tabla mantenga esa fila resaltada tras redibujar
-            if (lista.obtenerCancion(this.indiceActual) != null && modelo.getEstado() != BasicPlayer.STOPPED) {
-                resaltarCancionEnTabla(this.indiceActual);
-            }
-        }
-    }
+    // =========================================================================
+    //         GETTERS Y SETTERS (Acceso controlado para sub-controladores)
+    // =========================================================================
+    public ReproductorModelo getModelo() { return modelo; }
+    public ReproductorVista getVista() { return vista; }
+    public ListaReproduccion getLista() { return lista; }
+    
+    public int getContadorIndice() { return contadorIndice; }
+    public int getIndiceActual() { return indiceActual; }
+    
+    public long getTamanoArchivo() { return tamanoArchivo; }
+    public void setTamanoArchivo(long tamanoArchivo) { this.tamanoArchivo = tamanoArchivo; }
+    public void setEstaPausado(boolean estaPausado) { this.estaPausado = estaPausado; }
+    public boolean isEstaPausado() { return estaPausado; }
+       
 }
