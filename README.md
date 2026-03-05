@@ -60,7 +60,7 @@ El proyecto está en constante evolución. Las siguientes características está
 
 [X] Dividir en Controlador al implementar el patrón delegación. 
 
-[ ] Vaciar Lista de Reproducción: Añadir una opción al menú contextual o un botón dedicado para limpiar todo el HashMap y redibujar la tabla vacía en un solo clic.
+[X] Vaciar Lista de Reproducción: Añadir una opción al menú contextual o un botón dedicado para limpiar todo el HashMap y redibujar la tabla vacía en un solo clic.
 
 [ ] Lectura de Metadatos ID3: Extraer la información real incrustada en el archivo MP3 (Nombre del álbum original, año, y carátula) en lugar de depender solo del nombre del archivo.
 
