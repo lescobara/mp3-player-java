@@ -211,6 +211,31 @@ public class Controlador {
         }
     }
     
+    /**
+ * MEDIADOR PARA VACIAR LA LISTA
+ * Detiene la reproducci�n, limpia el modelo, resetea contadores y actualiza la tabla.
+ */
+    public void vaciarListaReproduccion() {
+        try {
+            // 1. Detener la m�sica y limpiar la interfaz gr�fica de reproducci�n
+            detenerReproduccion();
+
+            // 2. Vaciar el modelo de datos (HashMap)
+            lista.vaciarLista();
+
+            // 3. Resetear las variables de estado del controlador
+            this.contadorIndice = 0;
+            this.indiceActual = 0;
+            this.esNuevaCarga = true;
+
+            // 4. Orquestar a la Tabla: Le pide que borre todas las filas visualmente
+            ctrlTabla.limpiarTablaVisualmente();
+
+    } catch (Exception ex) {
+        JOptionPane.showMessageDialog(vista, "Error al vaciar la lista: " + ex.getMessage());
+    }
+}
+    
     // =========================================================================
     //                    MÉTODOS AUXILIARES DE BÚSQUEDA
     // =========================================================================

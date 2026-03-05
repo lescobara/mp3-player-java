@@ -10,6 +10,7 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Image;
+import java.awt.Insets;
 import java.net.URL;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -46,6 +47,7 @@ public class ReproductorVista extends JFrame {
     public JButton btnPausa = new JButton();
     public JButton btnStop = new JButton();
     public JButton btnSiguiente = new JButton();
+    public JButton btnVaciarLista = new JButton("Eliminar lista de reproducción");
     
     public JSlider sliderVolumen = new JSlider(0, 100, 50); // Min 0, Max 100, Inicial 50
 
@@ -77,11 +79,18 @@ public class ReproductorVista extends JFrame {
         // Ajusta el "40, 40" si quieres los íconos más grandes o pequeños
         int tamanoIcono = 40; 
         btnAbrir.setIcon(cargarIcono("iconos/folder_open.png", tamanoIcono, tamanoIcono));
-        btnAnterior.setIcon(cargarIcono("iconos/skip_previous.png", tamanoIcono, tamanoIcono));
+        btnAbrir.setRolloverIcon(cargarIcono("iconos/folder_open_hover.png",tamanoIcono, tamanoIcono));
+        btnAnterior.setIcon(cargarIcono("iconos/skip_previous.png",tamanoIcono,tamanoIcono));
+        btnAnterior.setRolloverIcon(cargarIcono("iconos/skip_previous_hover.png",tamanoIcono,tamanoIcono));
         btnPlay.setIcon(cargarIcono("iconos/play_circle.png", tamanoIcono, tamanoIcono));
+        btnPlay.setRolloverIcon(cargarIcono("iconos/play_circle_hover.png",tamanoIcono,tamanoIcono));
         btnPausa.setIcon(cargarIcono("iconos/pause_circle.png", tamanoIcono, tamanoIcono));
+        btnPausa.setRolloverIcon(cargarIcono("iconos/pause_circle_hover.png",tamanoIcono,tamanoIcono));
         btnStop.setIcon(cargarIcono("iconos/stop_circle.png", tamanoIcono, tamanoIcono));
+        btnStop.setRolloverIcon(cargarIcono("iconos/stop_circle_hover.png", tamanoIcono, tamanoIcono));
         btnSiguiente.setIcon(cargarIcono("iconos/skip_next.png", tamanoIcono, tamanoIcono));
+        btnSiguiente.setRolloverIcon(cargarIcono("iconos/skip_next_hover.png", tamanoIcono, tamanoIcono));
+        
         //haciendo el botón transparente
         btnAbrir.setContentAreaFilled(false);
         btnAnterior.setContentAreaFilled(false);
@@ -168,15 +177,34 @@ public class ReproductorVista extends JFrame {
         // ==========================================
         // 2. PANEL DERECHO (Tabla de Canciones)
         // ==========================================
-        // Le damos un ancho preferido de 450px, pero la altura se adaptar� a la ventana
         scrollTabla.setPreferredSize(new Dimension(450, 0)); 
         scrollTabla.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 10)); // Margen derecho
 
+        // Damos estilo al bot�n usando FlatLaf para que resalte como una acci�n destructiva (opcional)
+        //btnVaciarLista.putClientProperty("FlatLaf.styleClass", "destructive"); 
+        btnVaciarLista.setFont(new Font("SansSerif", Font.BOLD, 12));
+        btnVaciarLista.setMargin(new Insets(2, 10, 2, 10));
+        btnVaciarLista.setFocusPainted(false);
+        
+        // Al poner el fondo rojo, cambiamos el texto a blanco para que sea legible
+        btnVaciarLista.putClientProperty("FlatLaf.style", 
+            "hoverBackground: #740A03; " +
+            "hoverForeground: #FFFFFF;"
+        );
+
+        JPanel panelDerecho = new JPanel(new BorderLayout());
+        panelDerecho.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 10)); // Margen inferior y derecho
+        panelDerecho.add(scrollTabla, BorderLayout.CENTER);
+        JPanel panelBotonInferior = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 5));
+        panelBotonInferior.add(btnVaciarLista);
+
+        panelDerecho.add(panelBotonInferior, BorderLayout.SOUTH);
+        
         // ==========================================
         // 3. AGREGAR AL FRAME PRINCIPAL
         // ==========================================
         this.add(panelIzquierdo, BorderLayout.CENTER);
-        this.add(scrollTabla, BorderLayout.EAST);
+        this.add(panelDerecho, BorderLayout.EAST);
 
         // En lugar de pack(), definimos un tama�o base agradable para esta nueva disposici�n
         this.setSize(900, 400); 

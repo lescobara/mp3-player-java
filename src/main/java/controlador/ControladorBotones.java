@@ -34,6 +34,7 @@ public class ControladorBotones implements ActionListener{
         this.vista.btnAbrir.addActionListener(this);
         this.vista.btnAnterior.addActionListener(this);
         this.vista.btnSiguiente.addActionListener(this);
+        this.vista.btnVaciarLista.addActionListener(this);
     }
     
     /**
@@ -66,6 +67,18 @@ public class ControladorBotones implements ActionListener{
                 central.reproducirAnterior();
             } else if (e.getSource() == vista.btnSiguiente) {
                 central.reproducirSiguiente();
+            } else if (e.getSource() == vista.btnVaciarLista) {
+                int confirmacion = JOptionPane.showConfirmDialog(
+                vista,
+                "¿Está seguro de eliminar la lista de reproducción?",
+                "Vaciar Lista",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+                );
+
+                if (confirmacion == JOptionPane.YES_OPTION) {
+                    central.vaciarListaReproduccion();
+                }
             }
         
        }catch (Exception ex) {

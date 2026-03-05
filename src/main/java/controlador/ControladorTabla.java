@@ -153,4 +153,9 @@ public class ControladorTabla {
             }
         }
     }
+    
+    public void limpiarTablaVisualmente(){
+        //Limpiar tabla
+        this.vista.modeloTabla.setRowCount(0);
+    }
 }
